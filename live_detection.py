@@ -7,12 +7,26 @@ from efficientdet.utils import BBoxTransform, ClipBoxes
 from utils.utils import preprocess_video, invert_affine, postprocess
 import openvino as ov
 from torch.profiler import profile, record_function, ProfilerActivity
+import os
+
+current_directory=os.getcwd()
 
 compound_coef = 0
 force_input_size = None  # set None to use default size
 
 threshold = 0.6
 iou_threshold = 0.6
+
+#check CUDA availability
+import torch
+
+print("CUDA available:", torch.cuda.is_available())
+print("CUDA version:", torch.version.cuda)
+print("Number of GPUs:", torch.cuda.device_count())
+if torch.cuda.is_available():
+    print("GPU Name:", torch.cuda.get_device_name(0))
+    print("Current CUDA device:", torch.cuda.current_device())
+
 
 use_cuda = torch.cuda.is_available()
 use_float16 = False
@@ -30,7 +44,7 @@ model = EfficientDetBackbone(compound_coef=compound_coef, num_classes=len(obj_li
                              ratios=[(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)],
                              scales=[2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)])
 
-model_path = r"D:\01-KULIAH\0-SEMESTER 8\01-Undergraduate Thesis\0-Laboratory\EfficientDet Inference\Yet-Another-EfficientDet-Pytorch\saved_weights\efficientdet-d0_14_9500.pth"  # Change this to the path of your model weights
+model_path=os.path.join(current_directory,r"saved_weights\efficientdet-d0_14_9500.pth")
 if use_cuda:
     model.load_state_dict(torch.load(model_path, map_location=torch.device('cuda')))
 else:
@@ -47,7 +61,8 @@ model.eval()
 
 # Initialize webcam
 # cap = cv2.VideoCapture(0)  # 0 is the default webcam
-cap = cv2.VideoCapture(r"D:\01-KULIAH\0-SEMESTER 8\01-Undergraduate Thesis\Datasets\Used For Research\Raw\YawDD Supplement\Dash\10-MaleGlasses.avi")
+video_path=os.path.join(current_directory,r"test_video\10-MaleGlasses.avi")
+cap = cv2.VideoCapture(video_path)
 
 with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
     while True:

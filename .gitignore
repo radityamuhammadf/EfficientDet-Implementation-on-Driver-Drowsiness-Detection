@@ -125,11 +125,14 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# big size file, added on gdrive
+datasets/
+test/test
+test_videos/*.avi
+
 # Pyre type checker
 .pyre/
 .idea/
 weights/
 
-datasets/
-test/test
-test_videos/
+test_video/10-MaleGlasses.avi
