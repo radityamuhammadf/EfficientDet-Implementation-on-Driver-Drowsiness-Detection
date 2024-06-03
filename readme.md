@@ -54,6 +54,9 @@ Note: Ensure your PyTorch configuration matches your CUDA version (e.g., if you'
 ```sh
 pip install -r requriements.txt
 ```
+6. Manually download the test videos and manually make some folder named `test_videos`, paste the downloaded video in there.
+[Video Download Link (GDrive)](https://drive.google.com/drive/folders/1LRUUzz8F_V_rCJAqRk9b2W4nyrwJ_udg?usp=sharing)
+
 ## Usage
 Run the inference code
 ```sh
