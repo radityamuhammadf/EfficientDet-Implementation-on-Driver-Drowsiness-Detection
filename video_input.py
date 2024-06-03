@@ -11,7 +11,7 @@ import os
 
 current_directory = os.getcwd()
 # Video's path
-video_src=os.path.join(current_directory, r"test_videos\10-MaleGlasses.avi")
+video_src=os.path.join(current_directory, r"test_video\10-MaleGlasses.avi")
 # video_src = 0  # set int to use webcam, set str to read from a video file
 
 compound_coef = 0
@@ -20,8 +20,8 @@ force_input_size = None  # set None to use default size
 threshold = 0.2
 iou_threshold = 0.2
 
-use_cuda = False
-use_float16 = True
+use_cuda = True
+use_float16 = False
 cudnn.fastest = True
 cudnn.benchmark = True
 
