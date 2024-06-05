@@ -52,24 +52,6 @@ def main():
     if use_float16:
         model = model.half()
 
-    # function for display
-    def display(preds, imgs):
-        for i in range(len(imgs)):
-            if len(preds[i]['rois']) == 0:
-                return imgs[i]
-
-            for j in range(len(preds[i]['rois'])):
-                (x1, y1, x2, y2) = preds[i]['rois'][j].astype(int)
-                cv2.rectangle(imgs[i], (x1, y1), (x2, y2), (255, 255, 0), 2)
-                obj = obj_list[preds[i]['class_ids'][j]]
-                score = float(preds[i]['scores'][j])
-
-                cv2.putText(imgs[i], '{}, {:.3f}'.format(obj, score),
-                            (x1, y1 + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                            (255, 255, 0), 1)
-            
-            return imgs[i]
-
     # Box
     regressBoxes = BBoxTransform()
     clipBoxes = ClipBoxes()
@@ -105,17 +87,26 @@ def main():
                     detected_class=detection_result['class_ids']
                     
 
-                img_show = display(out, ori_imgs)
-            
+                for i in range(len(ori_imgs)):
+                    for j in range(len(out[i]['rois'])):
+                        (x1, y1, x2, y2) = out[i]['rois'][j].astype(int)
+                        cv2.rectangle(ori_imgs[i], (x1, y1), (x2, y2), (255, 255, 0), 2)
+                        obj = obj_list[out[i]['class_ids'][j]]
+                        score = float(out[i]['scores'][j])
 
-            cv2.imshow('frame', img_show)
+                        cv2.putText(ori_imgs[i], '{}, {:.3f}'.format(obj, score),
+                                    (x1, y1 + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                                    (255, 255, 0), 1)
+                    
+
+            cv2.imshow('frame', ori_imgs[i])
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
     cap.release()
     cv2.destroyAllWindows()
 
-if __name__='__main__':
+if __name__=='__main__':
     main()
 # Print profiling results
 # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
