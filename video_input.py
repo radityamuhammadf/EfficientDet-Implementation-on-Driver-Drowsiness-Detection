@@ -9,31 +9,33 @@ from utils.utils import preprocess, invert_affine, postprocess, preprocess_video
 from torch.profiler import profile, record_function, ProfilerActivity
 import os
 
-current_directory = os.getcwd()
-# Video's path
-video_src=os.path.join(current_directory, r"test_video\10-MaleGlasses-Trim.avi")
-# video_src = 0  # set int to use webcam, set str to read from a video file
-
-compound_coef = 0
-force_input_size = None  # set None to use default size
-
-threshold = 0.6 #matched with YOLO's confidence score threshold
-iou_threshold = 0.5 #matched with YOLO's IoU Threshold
-
-use_cuda = True
-use_float16 = False
-cudnn.fastest = True
-cudnn.benchmark = True
 
 def main():
+    current_directory = os.getcwd()
+    # Video's path
+    video_src=os.path.join(current_directory, r"test_video\10-MaleGlasses-Trim.avi")
+    # video_src = 0  # set int to use webcam, set str to read from a video file
+
+    compound_coef = 0
+    force_input_size = None  # set None to use default size
+
+    threshold = 0.6 #matched with YOLO's confidence score threshold
+    iou_threshold = 0.5 #matched with YOLO's IoU Threshold
+
+    use_cuda = True
+    use_float16 = False
+    cudnn.fastest = True
+    cudnn.benchmark = True
     obj_list = ['closed-eyes', 'yawn']
+
 
     # Initialize the dictionary to keep track of detection times and last durations
     detections = {
-        'closed-eyes': {'duration': 0, 'last_duration': 0, 'last_seen': None},
-        'yawn': {'duration': 0, 'last_duration': 0, 'last_seen': None}
+        'closed-eyes': {'duration': 0, 'frame_count': 0, 'last_seen_frame': None},
+        'yawn': {'duration': 0, 'frame_count': 0, 'last_seen_frame': None}
     }
 
+    drowsy_state = False
     # tf bilinear interpolation is different from any other's, just make do
     input_sizes = [512, 640, 768, 896, 1024, 1280, 1280, 1536, 1536]
     input_size = input_sizes[compound_coef] if force_input_size is None else force_input_size
@@ -58,12 +60,17 @@ def main():
 
     # Video capture
     cap = cv2.VideoCapture(video_src)
+    # Frame per Second variable initiation
+    fps=cap.get(cv2.CAP_PROP_FPS)
+    frame_duration=1/fps
+    frame_number=0
 
     with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
+            frame_number += 1
 
             ori_imgs, framed_imgs, framed_metas = preprocess_video(frame, max_size=input_size)
 
@@ -79,14 +86,12 @@ def main():
                     features, regression, classification, anchors = model(x)
 
                 with record_function("postprocess"):
-                    out = postprocess(x, anchors, regression, classification, regressBoxes, clipBoxes, threshold, iou_threshold)
+                    out = postprocess(x, anchors, regression, classification, regressBoxes, clipBoxes, threshold,
+                                      iou_threshold)
 
                 out = invert_affine(framed_metas, out)
-                #olah data out (pahami dia tensor seperti apa dan apakah bisa detect class nya, kemudian implementasikan logic yolo ke sini)
-                for detection_result in out:
-                    detected_class=detection_result['class_ids']
-                    
 
+                current_detections = set()
                 for i in range(len(ori_imgs)):
                     for j in range(len(out[i]['rois'])):
                         (x1, y1, x2, y2) = out[i]['rois'][j].astype(int)
@@ -97,9 +102,63 @@ def main():
                         cv2.putText(ori_imgs[i], '{}, {:.3f}'.format(obj, score),
                                     (x1, y1 + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                                     (255, 255, 0), 1)
-                    
 
-            cv2.imshow('frame', ori_imgs[i])
+                        # recording the frame count
+                        class_name = obj  # reusing the obj variable to match other repo's paradigm
+                        if detections[class_name]['last_seen_frame'] is None:
+                            detections[class_name]['last_seen_frame'] = frame_number
+                        else:
+                            detections[class_name]['frame_count'] += frame_number - detections[class_name][
+                                'last_seen_frame']
+                            detections[class_name]['last_seen_frame'] = frame_number
+                        detections[class_name]['was_detected'] = True  # params to state the detected state
+
+                        current_detections.add(class_name)
+
+                # Reset the durations when the class are not detected anymore
+                for class_name in detections:
+                    if class_name not in current_detections:  # check whether this current frame still detecting the same class
+                        detections[class_name]['was_detected'] = False  # reset the previously detected class state
+                        detections[class_name]['frame_count'] = 0  # reset counted frame value
+                        detections[class_name]['last_seen_frame'] = None  # reset previously seen frame
+
+                # Convert frame counts to time using FPS
+                for class_name in detections:
+                    detections[class_name]['duration'] = detections[class_name]['frame_count'] * frame_duration
+
+                # Detect drowsiness based on the duration of closed-eyes and yawn
+                closed_eyes_duration = detections['closed-eyes']['duration']
+                yawn_duration = detections['yawn']['duration']
+
+                # Logic for detecting drowsiness
+                if closed_eyes_duration > 2.0 or yawn_duration > 1.5:  # thresholds in seconds
+                    drowsy_state = True
+                else:
+                    drowsy_state = False
+
+            # debugging print state
+            print(f"Closed-eyes duration: {closed_eyes_duration:.2f} seconds")
+            print(f"Yawn duration: {yawn_duration:.2f} seconds")
+            print(f"Drowsy state: {drowsy_state}")
+
+            # Drowsy State Branch Logic
+            if drowsy_state is True:
+                pass
+
+
+
+            """
+            Static Information Display Function
+            """
+            #drawing and writing the annotation
+            cv2.rectangle(frame, (0, 10), (200, 60), (255, 255, 255), -1)
+            y_offset = 30
+            cv2.putText(frame, f'closed-eyes: {closed_eyes_duration:.2f} s', (10, y_offset), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 0), 2)
+            y_offset += 20
+            cv2.putText(frame, f'yawn: {yawn_duration:.2f} s', (10, y_offset), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 0), 2)
+            y_offset += 20
+
+            cv2.imshow('Inference-EfficientDetD0', ori_imgs[i])
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
