@@ -64,6 +64,8 @@ def main():
     fps=cap.get(cv2.CAP_PROP_FPS)
     frame_duration=1/fps
     frame_number=0
+    print("FPS: ",fps)
+
 
     with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
         while True:
@@ -124,6 +126,9 @@ def main():
 
                 # Convert frame counts to time using FPS
                 for class_name in detections:
+                    #this default frames per second are 30FPS -> and the duration for each frame are 1/30 ~ 0.33
+                    #for instance, if the closed-eyes class are detected for 65 frames consecutively
+                    #that means the durations of detected closed-eyes are 65*0.03 which are 1.95s
                     detections[class_name]['duration'] = detections[class_name]['frame_count'] * frame_duration
 
                 # Detect drowsiness based on the duration of closed-eyes and yawn
@@ -131,10 +136,18 @@ def main():
                 yawn_duration = detections['yawn']['duration']
 
                 # Logic for detecting drowsiness
-                if closed_eyes_duration > 2.0 or yawn_duration > 1.5:  # thresholds in seconds
+                if closed_eyes_duration > 0.5 or yawn_duration > 5.0:  # thresholds in seconds
                     drowsy_state = True
                 else:
                     drowsy_state = False
+
+                #Drowsy State Branch Logic
+                if drowsy_state is True:
+                    #                     x1, y1     x2,  y2    r,    g ,  b    (lupa ini apa)
+                    cv2.rectangle(frame, (500, 20), (640, 60), (255, 255, 255), -1)
+                    cv2.putText(frame, 'Drowsy', (500, 50), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 2)
+                    #continue adding logic regarding drowsy state here
+                    #drowsy counter (?)
 
             # debugging print state
             print(f"Closed-eyes duration: {closed_eyes_duration:.2f} seconds")

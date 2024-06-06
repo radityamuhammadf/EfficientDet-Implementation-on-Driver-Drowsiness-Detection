@@ -11,8 +11,8 @@ import os
 def main():
     current_directory = os.getcwd()
     # Video's path
-    video_src=os.path.join(current_directory, r"test_video\10-MaleGlasses-Trim.avi")
-    # video_src = 0  # set int to use webcam, set str to read from a video file
+    # video_src=os.path.join(current_directory, r"test_video\10-MaleGlasses-Trim.avi")
+    video_src = 0  # set int to use webcam, set str to read from a video file
 
     compound_coef = 0
     force_input_size = None  # set None to use default size
