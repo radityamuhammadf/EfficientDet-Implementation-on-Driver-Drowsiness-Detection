@@ -168,6 +168,8 @@ def main():
                     if not ret:
                         break
                     frame_number += 1
+                    # Resize the frame to 512x512
+                    frame = cv2.resize(frame, (512, 512)) 
 
                     ori_imgs, framed_imgs, framed_metas = preprocess_video(frame, max_size=input_size)
 
