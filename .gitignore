@@ -136,3 +136,4 @@ test_videos/*.avi
 weights/
 
 test_video/10-MaleGlasses.avi
+video-test_result/*
