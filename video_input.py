@@ -79,17 +79,17 @@ def main():
 
     #creating videos_metadata dictionary
     videos_metadata = {
-        'webcam_input': {
-            'path': 0,
-            'light_sufficient': True,
-            'looking_lr': False,
-            'detected_drowsiness': [],
-            'ground_truth_drowsiness': [],
-            'detection_accuracy':0,
-            'false_positive_rate':0,
-            'inference_time':0,
-            'profiler_result':""
-        },
+        # 'webcam_input': {
+        #     'path': 0,
+        #     'light_sufficient': True,
+        #     'looking_lr': False,
+        #     'detected_drowsiness': [],
+        #     'ground_truth_drowsiness': [],
+        #     'detection_accuracy':0,
+        #     'false_positive_rate':0,
+        #     'inference_time':0,
+        #     'profiler_result':""
+        # },
         'debug_video_sample': {
             'path': os.path.join(current_directory, r'test_video\debugging_sample.avi'),
             'light_sufficient': True,
@@ -101,19 +101,52 @@ def main():
             'inference_time':0,
             'profiler_result':""
         },
+        # 'light_sufficient-glasses': {
+        #     'path': os.path.join(current_directory, r'Research_DDD_VideoEvaluation\light_sufficient-glasses.mp4'),
+        #     'light_sufficient': True,
+        #     'looking_lr': False,
+        #     'detected_drowsiness': [],
+        #     'ground_truth_drowsiness': [],
+        #     'detection_accuracy':0,
+        #     'false_positive_rate':0,
+        #     'inference_time':0,
+        #     'profiler_result':""
+        # },
+        # 'light_sufficient-looking_lr-glasses': {
+        #     'path': os.path.join(current_directory, r'Research_DDD_VideoEvaluation\light_sufficient-looking_lr-glasses.mp4'),
+        #     'light_sufficient': True,
+        #     'looking_lr': False,
+        #     'detected_drowsiness': [],
+        #     'ground_truth_drowsiness': [],
+        #     'detection_accuracy':0,
+        #     'false_positive_rate':0,
+        #     'inference_time':0,
+        #     'profiler_result':""
+        # },
+        # 'low_light-looking_lr': {
+        #     'path': os.path.join(current_directory, r'Research_DDD_VideoEvaluation\low_light-looking_lr.mp4'),
+        #     'light_sufficient': True,
+        #     'looking_lr': False,
+        #     'detected_drowsiness': [],
+        #     'ground_truth_drowsiness': [],
+        #     'detection_accuracy':0,
+        #     'false_positive_rate':0,
+        #     'inference_time':0,
+        #     'profiler_result':""
+        # },
+        # 'low_light': {
+        #     'path': os.path.join(current_directory, r'Research_DDD_VideoEvaluation\low_light.mp4'),
+        #     'light_sufficient': True,
+        #     'looking_lr': False,
+        #     'detected_drowsiness': [],
+        #     'ground_truth_drowsiness': [],
+        #     'detection_accuracy':0,
+        #     'false_positive_rate':0,
+        #     'inference_time':0,
+        #     'profiler_result':""
+        },
+
     }
-    # #example of adding metadata (used later for the four video data)
-    # videos_metadata['video_name'] = {
-    #     'path': os.path.join(current_directory, 'path/to/another/vid'),
-    #     'light_sufficient': False,
-    #     'looking_lr': True,
-    #     'detected_drowsiness': [0.1, 0.3, 0.5],  # Example list of floats
-    #     'ground_truth_drowsiness': [0.2, 0.4, 0.6],  # Example list of floats,
-    #     'detection_accuracy':0,
-    #     'false_positive_rate':0,
-    #     'inference_time':0,
-    #     'profiler_result':""
-    # }
 
     #iterating every metadata element in every 'video_name' (videos_metadata members) element
     for video_name, metadata in videos_metadata.items():
