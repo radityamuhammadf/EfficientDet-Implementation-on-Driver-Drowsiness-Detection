@@ -14,6 +14,7 @@ from datetime import datetime
 
 
 def main():
+    test_time_start=time.time()
     current_directory = os.getcwd()
     # Video's path
     # video_src=os.path.join(current_directory, r"test_video\10-MaleGlasses-Trim.avi")
@@ -35,6 +36,11 @@ def main():
     detections = {
         'closed-eyes': {'duration': 0, 'frame_count': 0, 'last_seen_frame': None},
         'yawn': {'duration': 0, 'frame_count': 0, 'last_seen_frame': None}
+    }
+    # Initialize so-called tracking logic dictionary -> for recording latest detection if there's no detection
+    prev_annotation={
+        'inference_results':[],
+        'rep_count':12 # -> delaying maximum 12 frames if the current frame don't have any detection result (12 frames equal to 0.36 [by 12*0.03])
     }
 
     #Drowsy State Declaration
@@ -144,8 +150,7 @@ def main():
         #     'false_positive_rate':0,
         #     'inference_time':0,
         #     'profiler_result':""
-        },
-
+        # },
     }
 
     #iterating every metadata element in every 'video_name' (videos_metadata members) element
@@ -185,11 +190,25 @@ def main():
                             inference_start=time.time()
                             features, regression, classification, anchors = model(x)
                             inference_end=time.time()
-                            temp_inference_time.append(inference_end-inference_start) 
+                            temp_inference_time.append(inference_end-inference_start)
+
                         out = postprocess(x, anchors, regression, classification, regressBoxes, clipBoxes, threshold,
                                         iou_threshold)
 
                     out = invert_affine(framed_metas, out)
+
+                    # Check if any detections were made
+                    if not any(len(detection['rois']) > 0 for detection in out):
+                        if prev_annotation['rep_count'] > 0 and prev_annotation['inference_results']:
+                            features, regression, classification, anchors = prev_annotation['inference_results']
+                            out = postprocess(x, anchors, regression, classification, regressBoxes, clipBoxes, threshold,
+                                            iou_threshold)
+                            out = invert_affine(framed_metas, out)
+                            print("DEBUG- using previously detected annotation")
+                            prev_annotation['rep_count'] -= 1
+                    else: #check if there's detection been made
+                        prev_annotation['inference_results'] = [features, regression, classification, anchors]
+                        prev_annotation['rep_count'] = 12
 
                     current_detections = set()
                     for i in range(len(ori_imgs)):
@@ -224,9 +243,6 @@ def main():
 
                     # Convert frame counts to time using FPS
                     for class_name in detections:
-                        # this default frames per second are 30FPS -> and the duration for each frame are 1/30 ~ 0.33
-                        # for instance, if the closed-eyes class are detected for 65 frames consecutively
-                        # that means the durations of detected closed-eyes are 65*0.03 which are 1.95s
                         detections[class_name]['duration'] = detections[class_name]['frame_count'] * frame_duration
 
                     # Detect drowsiness based on the duration of closed-eyes and yawn
@@ -314,7 +330,12 @@ def main():
                 metadata['profiler_result']
             ]
             ws.append(row)
-    
+
+    #Append How Long The Test is Going
+    test_time_end=time.time()
+    test_dur_min,test_dur_sec=divmod((test_time_end-test_time_start),60)
+    ws.append([f"This test took {int(test_dur_min)} minutes and {test_dur_sec:.2f} seconds"])
+    print(f"This test took {int(test_dur_min)} minutes and {test_dur_sec:.2f} seconds")
     # Export Excel File
     # Generate filename
     now = datetime.now()

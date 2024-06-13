@@ -31,6 +31,11 @@ def main():
         'closed-eyes': {'duration': 0, 'frame_count': 0, 'last_seen_frame': None},
         'yawn': {'duration': 0, 'frame_count': 0, 'last_seen_frame': None}
     }
+    # Initialize so-called tracking logic dictionary -> for recording latest detection if there's no detection
+    prev_annotation={
+        'inference_results':[],
+        'rep_count':12 # -> delaying maximum 12 frames if the current frame don't have any detection result (12 frames equal to 0.36 [by 12*0.03])
+    }
 
     drowsy_state = False
     # tf bilinear interpolation is different from any other's, just make do
@@ -84,6 +89,18 @@ def main():
                               iou_threshold)
 
         out = invert_affine(framed_metas, out)
+        # Check if any detections were made
+        if not any(len(detection['rois']) > 0 for detection in out):
+            if prev_annotation['rep_count'] > 0 and prev_annotation['inference_results']:
+                features, regression, classification, anchors = prev_annotation['inference_results']
+                out = postprocess(x, anchors, regression, classification, regressBoxes, clipBoxes, threshold,
+                                iou_threshold)
+                out = invert_affine(framed_metas, out)
+                print("DEBUG- using previously detected annotation")
+                prev_annotation['rep_count'] -= 1
+        else: #check if there's detection been made
+            prev_annotation['inference_results'] = [features, regression, classification, anchors]
+            prev_annotation['rep_count'] = 12
 
         current_detections = set()
         for i in range(len(ori_imgs)):
