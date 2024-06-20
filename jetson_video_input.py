@@ -39,11 +39,11 @@ def main():
         'closed-eyes': {'duration': 0, 'frame_count': 0, 'last_seen_frame': None},
         'yawn': {'duration': 0, 'frame_count': 0, 'last_seen_frame': None}
     }
-    # Initialize so-called tracking logic dictionary -> for recording latest detection if there's no detection
-    prev_annotation={
-        'inference_results':[],
-        'rep_count':12 # -> delaying maximum 12 frames if the current frame don't have any detection result (12 frames equal to 0.36 [by 12*0.03])
-    }
+    # # Initialize so-called tracking logic dictionary -> for recording latest detection if there's no detection
+    # prev_annotation={
+    #     'inference_results':[],
+    #     'rep_count':12 # -> delaying maximum 12 frames if the current frame don't have any detection result (12 frames equal to 0.36 [by 12*0.03])
+    # }
 
     #Drowsy State Declaration
     prev_drowsy_state=False
@@ -56,7 +56,7 @@ def main():
     model = EfficientDetBackbone(compound_coef=compound_coef, num_classes=len(obj_list),
                                 ratios=[(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)],
                                 scales=[2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)])
-    model_path = os.path.join(current_directory,r"saved_weights/efficientdet-d0_14_9500.pth")
+    model_path = os.path.join(current_directory,r"saved_weights/efficientdet-d0_19_12760.pth")
     model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     model.requires_grad_(False)
     model.eval()
@@ -80,7 +80,7 @@ def main():
     # Write the header row
     headers = [
         "Name", "Light", "Look", 
-        "Accuracy (%)", "FP Rate (%)", 
+        "Predict","G. Truth","Accuracy (%)", "FP Rate (%)", 
         "Inf. Time (ms)", "CPU (%)", "GPU (%)","RAM (MB)"
     ]
     ws.append(headers)
@@ -209,6 +209,14 @@ def main():
         print("FPS: ", fps)
         temp_inference_time = []
 
+        temp_resource={
+            'CPU':[],
+            'GPU':[],
+            'RAM':[]
+        }
+
+        temp_detected_drowsiness = []
+
 
         try:
             with jtop() as jetson:
@@ -235,24 +243,29 @@ def main():
                             features, regression, classification, anchors = model(x)
                             inference_end=time.time()
                             temp_inference_time.append(inference_end-inference_start)
+                            # Profiling Jetson Stats
+                            temp_resource['CPU'].append((jetson.stats['CPU1']+jetson.stats['CPU2']+jetson.stats['CPU3']+jetson.stats['CPU4']+jetson.stats['CPU5']+jetson.stats['CPU6'])/6)
+                            temp_resource['GPU'].append(jetson.stats['GPU'])
+                            temp_resource['RAM'].append(jetson.stats['RAM'])
+
 
                     out = postprocess(x, anchors, regression, classification, regressBoxes, clipBoxes, threshold,
                                       iou_threshold)
 
                     out = invert_affine(framed_metas, out)
 
-                    # Check if any detections were made
-                    if not any(len(detection['rois']) > 0 for detection in out):
-                        if prev_annotation['rep_count'] > 0 and prev_annotation['inference_results']:
-                            features, regression, classification, anchors = prev_annotation['inference_results']
-                            out = postprocess(x, anchors, regression, classification, regressBoxes, clipBoxes, threshold,
-                                            iou_threshold)
-                            out = invert_affine(framed_metas, out)
-                            print("DEBUG- using previously detected annotation")
-                            prev_annotation['rep_count'] -= 1
-                    else: #check if there's detection been made
-                        prev_annotation['inference_results'] = [features, regression, classification, anchors]
-                        prev_annotation['rep_count'] = 12
+                    # # Check if any detections were made
+                    # if not any(len(detection['rois']) > 0 for detection in out):
+                    #     if prev_annotation['rep_count'] > 0 and prev_annotation['inference_results']:
+                    #         features, regression, classification, anchors = prev_annotation['inference_results']
+                    #         out = postprocess(x, anchors, regression, classification, regressBoxes, clipBoxes, threshold,
+                    #                         iou_threshold)
+                    #         out = invert_affine(framed_metas, out)
+                    #         print("DEBUG- using previously detected annotation")
+                    #         prev_annotation['rep_count'] -= 1
+                    # else: #check if there's detection been made
+                    #     prev_annotation['inference_results'] = [features, regression, classification, anchors]
+                    #     prev_annotation['rep_count'] = 12
 
                     current_detections = set()
                     for i in range(len(ori_imgs)):
@@ -299,11 +312,6 @@ def main():
                     else:
                         drowsy_state = False
 
-                    # Drowsy State Branch Logic
-                    if drowsy_state is True:
-                        cv2.rectangle(frame, (500, 20), (640, 60), (255, 255, 255), -1)
-                        cv2.putText(frame, 'Drowsy', (500, 50), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 2)
-
                     # debugging print state
                     print(f"Closed-eyes duration: {closed_eyes_duration:.2f} seconds")
                     print(f"Yawn duration: {yawn_duration:.2f} seconds")
@@ -311,10 +319,11 @@ def main():
 
                     # Drowsy State Branch Logic
                     if drowsy_state is True:
-                        cv2.rectangle(frame, (500, 20), (640, 60), (255, 255, 255), -1)
-                        cv2.putText(frame, 'Drowsy', (500, 50), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 2)
+                        cv2.rectangle(frame, (400, 20), (512, 60), (255, 255, 255), -1)
+                        cv2.putText(frame, 'Drowsy', (400, 50), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 2)
                         #record the first time drowsiness detected by multiplying current frame number with frame duration
                         if prev_drowsy_state is False:
+                            temp_detected_drowsiness.append(frame_number*frame_duration)
                             metadata['detected_drowsiness'].append(frame_number*frame_duration)                            
                         prev_drowsy_state=True
                     else:
@@ -344,16 +353,18 @@ def main():
             # Profiling Jetson Stats               
             print("\nDEBUGGING STATS\n")
             # Profiling Result
-            gpu_usage = jetson.stats['GPU']
+            gpu_usage = sum(temp_resource['GPU'])/len(temp_resource['GPU'])
             # Collecting all CPU usage and calculate the average
-            cpu_usage = (jetson.stats['CPU1']+jetson.stats['CPU2']+jetson.stats['CPU3']+jetson.stats['CPU4']+jetson.stats['CPU5']+jetson.stats['CPU6'])/6
-            memory_usage = jetson.stats['RAM']
+            cpu_usage = sum(temp_resource['CPU'])/len(temp_resource['CPU'])
+            memory_usage = sum(temp_resource['RAM'])/len(temp_resource['RAM'])
 
             # Append Profiling Result to Metadata
             metadata['CPU']=f"{cpu_usage:.2f}"
             metadata['GPU']=f"{gpu_usage:.2f}"
             metadata['RAM']=f"{memory_usage:.2f}"
             metadata['inference_time'] = f"{inferece_time_avg:.2f}"
+            metadata['detected_drowsiness']=f"{metadata['detected_drowsiness']}"
+            metadata['ground_truth_drowsiness']=f"{metadata['ground_truth_drowsiness']}"
 
             # Debugging Prompt
             print(f"CPU Usage: {metadata['CPU']}%")
@@ -363,12 +374,12 @@ def main():
             # Measure and print other metadata
             # Detection Accuracy Measurements
             if len(metadata['ground_truth_drowsiness']) != 0:
-                if len(metadata['detected_drowsiness'])<=len(metadata['ground_truth_drowsiness']): #stating if there's no false positive by make sure the ground truth are more than equal to detected state 
-                    metadata['detection_accuracy']=len(metadata['detected_drowsiness'])/len(metadata['ground_truth_drowsiness'])
+                if len(temp_detected_drowsiness)<=len(metadata['ground_truth_drowsiness']): #stating if there's no false positive by make sure the ground truth are more than equal to detected state 
+                    metadata['detection_accuracy']=len(temp_detected_drowsiness)/len(metadata['ground_truth_drowsiness'])
                     metadata['false_positive_rate']=0
                 else: #for if the detected state exceed the ground truth 
                     # find exceeding values by subsracting detected drowsiness with ground truth value
-                    exceed_value=len(metadata['detected_drowsiness'])-len(metadata['ground_truth_drowsiness'])
+                    exceed_value=len(temp_detected_drowsiness)-len(metadata['ground_truth_drowsiness'])
                     metadata['detection_accuracy']=(len(metadata['ground_truth_drowsiness'])-exceed_value)/len(metadata['ground_truth_drowsiness'])
                     metadata['false_positive_rate']=exceed_value/len(metadata['ground_truth_drowsiness'])
             print(f"Average Inference Time: {metadata['inference_time']}ms") # debugging prompt
@@ -378,6 +389,8 @@ def main():
                 video_name,
                 metadata['light_sufficient'],
                 metadata['looking_lr'],
+                metadata['detected_drowsiness'],
+                metadata['ground_truth_drowsiness'],
                 metadata['detection_accuracy'],
                 metadata['false_positive_rate'],
                 metadata['inference_time'],
@@ -397,7 +410,7 @@ def main():
     # Generate filename
     now = datetime.now()
     date_str = now.strftime("%b%d-%H%M")
-    dynamic_filename = f"EfficientDet-MainTest-{date_str}.xlsx" #For Debugging
+    dynamic_filename = f"EfficientDetD0-MainTest-{date_str}.xlsx" #For Debugging
     # dynamic_filename = f"VideoTest-Main-{date_str}.xlsx" #For The Main Test Set
     output_file=os.path.join(current_directory, f"video-test_result/{dynamic_filename}")
     wb.save(output_file)
