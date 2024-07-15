@@ -80,7 +80,7 @@ def main():
     # Write the header row
     headers = [
         "Name", "Light", "Look", 
-        "Predict","G. Truth","Accuracy (%)", "FP Rate (%)", 
+        "Predict","G. Truth","Accuracy (%)", 
         "Inf. Time (ms)", "CPU (%)", "GPU (%)","RAM (MB)"
     ]
     ws.append(headers)
@@ -101,7 +101,6 @@ def main():
         #     'detected_drowsiness': [],
         #     'ground_truth_drowsiness': [],
         #     'detection_accuracy':0,
-        #     'false_positive_rate':0,
         #     'inference_time':0,
         #     'profiler_result':""
         # },
@@ -112,7 +111,6 @@ def main():
         #     'detected_drowsiness': [],
         #     'ground_truth_drowsiness': [],
         #     'detection_accuracy':0,
-        #     'false_positive_rate':0,
         #     'inference_time':0,
         #     'profiler_result':""
         # },
@@ -123,7 +121,6 @@ def main():
             'detected_drowsiness': [],
             'ground_truth_drowsiness': [14,24,34,43,54],
             'detection_accuracy':0,
-            'false_positive_rate':0,
             'inference_time':0,
             'CPU':0,
             'GPU':0,
@@ -136,7 +133,6 @@ def main():
             'detected_drowsiness': [],
             'ground_truth_drowsiness': [15,24,34,43,55],
             'detection_accuracy':0,
-            'false_positive_rate':0,
             'inference_time':0,
             'CPU':0,
             'GPU':0,
@@ -149,7 +145,6 @@ def main():
             'detected_drowsiness': [],
             'ground_truth_drowsiness': [14,25,34,45,56],
             'detection_accuracy':0,
-            'false_positive_rate':0,
             'inference_time':0,
             'CPU':0,
             'GPU':0,
@@ -162,7 +157,6 @@ def main():
             'detected_drowsiness': [],
             'ground_truth_drowsiness': [14,23,36,44,56],
             'detection_accuracy':0,
-            'false_positive_rate':0,
             'inference_time':0,
             'CPU':0,
             'GPU':0,
@@ -175,7 +169,6 @@ def main():
         #     'detected_drowsiness': [],
         #     'ground_truth_drowsiness': [],
         #     'detection_accuracy':0,
-        #     'false_positive_rate':0,
         #     'inference_time':0,
         #     'CPU':0,
         #     'GPU':0,
@@ -188,7 +181,6 @@ def main():
         #     'detected_drowsiness': [],
         #     'ground_truth_drowsiness': [16,25,35,43,56],
         #     'detection_accuracy':0,
-        #     'false_positive_rate':0,
         #     'inference_time':0,
         #     'CPU':0,
         #     'GPU':0,
@@ -196,6 +188,13 @@ def main():
         # },
 
     }
+    # Generate filename
+    now = datetime.now()
+    date_str = now.strftime("%b%d-%H%M") #Date Formatting for Video and Excel File
+    video_output_name=os.path.join(current_directory, f"predicted_videos/EffDetideoResult-{date_str}.mp4")
+    codec=cv2.VideoWriter_fourcc(*'mp4v')
+    output_video_obj=cv2.VideoWriter(video_output_name,codec,30,(512,384))
+
 
     #iterating every metadata element in every 'video_name' (videos_metadata members) element
     for video_name, metadata in videos_metadata.items():
@@ -307,7 +306,7 @@ def main():
                     yawn_duration = detections['yawn']['duration']
 
                     # Logic for detecting drowsiness
-                    if closed_eyes_duration > 0.5 or yawn_duration > 5.0:  # thresholds in seconds
+                    if closed_eyes_duration > 0.4 or yawn_duration > 5.0:  # thresholds in seconds
                         drowsy_state = True
                     else:
                         drowsy_state = False
@@ -341,6 +340,8 @@ def main():
                     y_offset += 20
 
                     cv2.imshow('Inference-EfficientDetD0', ori_imgs[i])
+                    # Write the frame to the output video
+                    output_video_obj.write(ori_imgs[i])   
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                     inferece_time_avg=(sum(temp_inference_time) / len(temp_inference_time))*1000
@@ -373,16 +374,16 @@ def main():
 
             # Measure and print other metadata
             # Detection Accuracy Measurements
-            if len(metadata['ground_truth_drowsiness']) != 0:
-                if len(temp_detected_drowsiness)<=len(metadata['ground_truth_drowsiness']): #stating if there's no false positive by make sure the ground truth are more than equal to detected state 
-                    metadata['detection_accuracy']=len(temp_detected_drowsiness)/len(metadata['ground_truth_drowsiness'])
-                    metadata['false_positive_rate']=0
-                else: #for if the detected state exceed the ground truth 
-                    # find exceeding values by subsracting detected drowsiness with ground truth value
-                    exceed_value=len(temp_detected_drowsiness)-len(metadata['ground_truth_drowsiness'])
-                    metadata['detection_accuracy']=(len(metadata['ground_truth_drowsiness'])-exceed_value)/len(metadata['ground_truth_drowsiness'])
-                    metadata['false_positive_rate']=exceed_value/len(metadata['ground_truth_drowsiness'])
-            print(f"Average Inference Time: {metadata['inference_time']}ms") # debugging prompt
+            # if len(metadata['ground_truth_drowsiness']) != 0:
+            #     if len(temp_detected_drowsiness)<=len(metadata['ground_truth_drowsiness']): #stating if there's no false positive by make sure the ground truth are more than equal to detected state 
+            #         metadata['detection_accuracy']=len(temp_detected_drowsiness)/len(metadata['ground_truth_drowsiness'])
+            #         metadata['false_positive_rate']=0
+            #     else: #for if the detected state exceed the ground truth 
+            #         # find exceeding values by subsracting detected drowsiness with ground truth value
+            #         exceed_value=len(temp_detected_drowsiness)-len(metadata['ground_truth_drowsiness'])
+            #         metadata['detection_accuracy']=(len(metadata['ground_truth_drowsiness'])-exceed_value)/len(metadata['ground_truth_drowsiness'])
+            #         metadata['false_positive_rate']=exceed_value/len(metadata['ground_truth_drowsiness'])
+            # print(f"Average Inference Time: {metadata['inference_time']}ms") # debugging prompt
             
             #Append Row Using Video Metadata Information
             row = [
@@ -391,8 +392,7 @@ def main():
                 metadata['looking_lr'],
                 metadata['detected_drowsiness'],
                 metadata['ground_truth_drowsiness'],
-                metadata['detection_accuracy'],
-                metadata['false_positive_rate'],
+                "",
                 metadata['inference_time'],
                 metadata['CPU'],
                 metadata['GPU'],
@@ -407,14 +407,11 @@ def main():
     print(f"This test took {int(test_dur_min)} minutes and {test_dur_sec:.2f} seconds")
     
     # Export Excel File
-    # Generate filename
-    now = datetime.now()
-    date_str = now.strftime("%b%d-%H%M")
     dynamic_filename = f"EfficientDetD0-MainTest-{date_str}.xlsx" #For Debugging
     # dynamic_filename = f"VideoTest-Main-{date_str}.xlsx" #For The Main Test Set
     output_file=os.path.join(current_directory, f"video-test_result/{dynamic_filename}")
     wb.save(output_file)
-
+    output_video_obj.release() #export the output video
     cv2.destroyAllWindows()
 
 
