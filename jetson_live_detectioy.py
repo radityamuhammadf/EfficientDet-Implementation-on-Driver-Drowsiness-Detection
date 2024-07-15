@@ -54,7 +54,7 @@ def main():
     model = EfficientDetBackbone(compound_coef=compound_coef, num_classes=len(obj_list),
                                 ratios=[(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)],
                                 scales=[2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)])
-    model_path = os.path.join(current_directory,r"saved_weights\efficientdet-d0_14_9500.pth")
+    model_path = os.path.join(current_directory,r"saved_weights/efficientdet-d0_14_9500.pth")
     model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     model.requires_grad_(False)
     model.eval()
